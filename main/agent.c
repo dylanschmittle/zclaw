@@ -28,6 +28,7 @@ static QueueHandle_t s_input_queue;
 static QueueHandle_t s_channel_output_queue;
 static QueueHandle_t s_telegram_output_queue;
 static int64_t s_last_start_response_us = 0;
+static bool s_messages_paused = false;
 
 // Conversation history (rolling message buffer)
 static conversation_msg_t s_history[MAX_HISTORY_TURNS * 2];
@@ -170,9 +171,9 @@ static bool is_whitespace_char(char c)
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-static bool is_start_command(const char *message)
+static bool is_command(const char *message, const char *name)
 {
-    if (!message) {
+    if (!message || !name || name[0] == '\0') {
         return false;
     }
 
@@ -180,19 +181,25 @@ static bool is_start_command(const char *message)
         message++;
     }
 
-    if (strncmp(message, "/start", 6) != 0) {
+    if (*message != '/') {
         return false;
     }
 
-    // Accept "/start", "/start payload", and "/start@bot payload".
-    if (message[6] == '\0' || is_whitespace_char(message[6])) {
+    size_t name_len = strlen(name);
+    const char *cursor = message + 1;
+    if (strncmp(cursor, name, name_len) != 0) {
+        return false;
+    }
+    cursor += name_len;
+
+    // Accept "/<name>", "/<name> payload", and "/<name>@bot payload".
+    if (*cursor == '\0' || is_whitespace_char(*cursor)) {
         return true;
     }
-    if (message[6] != '@') {
+    if (*cursor != '@') {
         return false;
     }
-
-    const char *cursor = message + 7;
+    cursor++;
     if (*cursor == '\0') {
         return false;
     }
@@ -215,7 +222,11 @@ static void handle_start_command(void)
         "- gpio read <pin>\n"
         "- i2c scan <sda> <scl>\n"
         "- schedule <periodic|daily|once> ...\n"
-        "- memory list|get|set|del";
+        "- memory list|get|set|del\n"
+        "\n"
+        "Control Telegram command intake:\n"
+        "- /stop (pause)\n"
+        "- /resume (resume)";
     send_response(START_HELP_TEXT);
 }
 
@@ -233,7 +244,32 @@ static void process_message(const char *user_message)
         .rounds = 0,
     };
 
-    if (is_start_command(user_message)) {
+    if (is_command(user_message, "resume")) {
+        if (!s_messages_paused) {
+            send_response("zclaw is already active.");
+            metrics_log_request(&metrics, "resume_noop");
+            return;
+        }
+        s_messages_paused = false;
+        send_response("zclaw resumed. Send /start for command help.");
+        metrics_log_request(&metrics, "resumed");
+        return;
+    }
+
+    if (s_messages_paused) {
+        ESP_LOGD(TAG, "Paused mode: ignoring message");
+        metrics_log_request(&metrics, "paused_drop");
+        return;
+    }
+
+    if (is_command(user_message, "stop")) {
+        s_messages_paused = true;
+        send_response("zclaw paused. I will ignore new messages until /resume.");
+        metrics_log_request(&metrics, "paused");
+        return;
+    }
+
+    if (is_command(user_message, "start")) {
         int64_t now_us = esp_timer_get_time();
         uint64_t since_last_start_ms = 0;
         if (s_last_start_response_us > 0 && now_us > s_last_start_response_us) {
@@ -424,6 +460,7 @@ void agent_test_reset(void)
     s_channel_output_queue = NULL;
     s_telegram_output_queue = NULL;
     s_last_start_response_us = 0;
+    s_messages_paused = false;
 }
 
 void agent_test_set_queues(QueueHandle_t channel_output_queue,

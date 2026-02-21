@@ -253,6 +253,61 @@ TEST(start_command_bypasses_llm_and_debounces)
     return 0;
 }
 
+TEST(stop_and_resume_pause_message_processing)
+{
+    QueueHandle_t channel_q;
+    QueueHandle_t telegram_q;
+    char text[TELEGRAM_MAX_MSG_LEN];
+    const char *success =
+        "{\"content\":[{\"type\":\"text\",\"text\":\"normal response\"}],\"stop_reason\":\"end_turn\"}";
+
+    reset_state();
+
+    channel_q = xQueueCreate(4, sizeof(channel_output_msg_t));
+    telegram_q = xQueueCreate(4, sizeof(telegram_msg_t));
+    ASSERT(channel_q != NULL);
+    ASSERT(telegram_q != NULL);
+    agent_test_set_queues(channel_q, telegram_q);
+
+    agent_test_process_message("/stop");
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "zclaw paused.") != NULL);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "/resume") != NULL);
+
+    // While paused, regular messages are ignored and never hit the LLM.
+    agent_test_process_message("hello");
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 0);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 0);
+
+    // /start should also be ignored while paused.
+    agent_test_process_message("/start");
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 0);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 0);
+
+    agent_test_process_message("/resume");
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "zclaw resumed.") != NULL);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "/start") != NULL);
+
+    ASSERT(mock_llm_push_result(ESP_OK, success));
+    agent_test_process_message("hello");
+    ASSERT(mock_llm_request_count() == 1);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT_STR_EQ(text, "normal response");
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 1);
+    ASSERT_STR_EQ(text, "normal response");
+
+    vQueueDelete(channel_q);
+    vQueueDelete(telegram_q);
+    return 0;
+}
+
 int test_agent_all(void)
 {
     int failures = 0;
@@ -296,6 +351,13 @@ int test_agent_all(void)
 
     printf("  start_command_bypasses_llm_and_debounces... ");
     if (test_start_command_bypasses_llm_and_debounces() == 0) {
+        printf("OK\n");
+    } else {
+        failures++;
+    }
+
+    printf("  stop_and_resume_pause_message_processing... ");
+    if (test_stop_and_resume_pause_message_processing() == 0) {
         printf("OK\n");
     } else {
         failures++;
