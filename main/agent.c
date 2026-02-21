@@ -27,6 +27,7 @@ static const char *TAG = "agent";
 static QueueHandle_t s_input_queue;
 static QueueHandle_t s_channel_output_queue;
 static QueueHandle_t s_telegram_output_queue;
+static int64_t s_last_start_response_us = 0;
 
 // Conversation history (rolling message buffer)
 static conversation_msg_t s_history[MAX_HISTORY_TURNS * 2];
@@ -164,6 +165,60 @@ static void send_response(const char *text)
     queue_telegram_response(text);
 }
 
+static bool is_whitespace_char(char c)
+{
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+static bool is_start_command(const char *message)
+{
+    if (!message) {
+        return false;
+    }
+
+    while (*message && is_whitespace_char(*message)) {
+        message++;
+    }
+
+    if (strncmp(message, "/start", 6) != 0) {
+        return false;
+    }
+
+    // Accept "/start", "/start payload", and "/start@bot payload".
+    if (message[6] == '\0' || is_whitespace_char(message[6])) {
+        return true;
+    }
+    if (message[6] != '@') {
+        return false;
+    }
+
+    const char *cursor = message + 7;
+    if (*cursor == '\0') {
+        return false;
+    }
+    while (*cursor && !is_whitespace_char(*cursor)) {
+        cursor++;
+    }
+
+    return true;
+}
+
+static void handle_start_command(void)
+{
+    static const char *START_HELP_TEXT =
+        "zclaw online.\n\n"
+        "Try:\n"
+        "- health\n"
+        "- time\n"
+        "- timezone <name>\n"
+        "- gpio set <pin> <0|1>\n"
+        "- gpio read <pin>\n"
+        "- i2c scan <sda> <scl>\n"
+        "- schedule <periodic|daily|once> ...\n"
+        "- memory list|get|set|del";
+    send_response(START_HELP_TEXT);
+}
+
 // Process a single user message
 static void process_message(const char *user_message)
 {
@@ -177,6 +232,26 @@ static void process_message(const char *user_message)
         .tool_calls = 0,
         .rounds = 0,
     };
+
+    if (is_start_command(user_message)) {
+        int64_t now_us = esp_timer_get_time();
+        uint64_t since_last_start_ms = 0;
+        if (s_last_start_response_us > 0 && now_us > s_last_start_response_us) {
+            since_last_start_ms = (uint64_t)(now_us - s_last_start_response_us) / 1000ULL;
+        }
+
+        if (s_last_start_response_us > 0 && since_last_start_ms < START_COMMAND_COOLDOWN_MS) {
+            ESP_LOGW(TAG, "Suppressing repeated /start (%" PRIu64 "ms since last response)",
+                     since_last_start_ms);
+            metrics_log_request(&metrics, "start_suppressed");
+            return;
+        }
+
+        s_last_start_response_us = now_us;
+        handle_start_command();
+        metrics_log_request(&metrics, "start_handled");
+        return;
+    }
 
     // Get tools
     int tool_count;
@@ -348,6 +423,7 @@ void agent_test_reset(void)
     memset(s_tool_result_buf, 0, sizeof(s_tool_result_buf));
     s_channel_output_queue = NULL;
     s_telegram_output_queue = NULL;
+    s_last_start_response_us = 0;
 }
 
 void agent_test_set_queues(QueueHandle_t channel_output_queue,

@@ -122,6 +122,7 @@ typedef enum {
 #define TELEGRAM_POLL_TIMEOUT   30      // Long polling timeout (seconds)
 #define TELEGRAM_POLL_INTERVAL  100     // ms between poll attempts on error
 #define TELEGRAM_MAX_MSG_LEN    4096    // Max message length
+#define START_COMMAND_COOLDOWN_MS 30000 // Debounce repeated Telegram /start bursts
 
 // -----------------------------------------------------------------------------
 // Cron / Scheduler

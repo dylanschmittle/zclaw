@@ -218,6 +218,41 @@ TEST(channel_output_allows_long_response)
     return 0;
 }
 
+TEST(start_command_bypasses_llm_and_debounces)
+{
+    QueueHandle_t channel_q;
+    QueueHandle_t telegram_q;
+    char text[TELEGRAM_MAX_MSG_LEN];
+
+    reset_state();
+
+    channel_q = xQueueCreate(4, sizeof(channel_output_msg_t));
+    telegram_q = xQueueCreate(4, sizeof(telegram_msg_t));
+    ASSERT(channel_q != NULL);
+    ASSERT(telegram_q != NULL);
+    agent_test_set_queues(channel_q, telegram_q);
+
+    agent_test_process_message("/start");
+
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(mock_ratelimit_record_count() == 0);
+
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "zclaw online.") != NULL);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 1);
+    ASSERT(strstr(text, "zclaw online.") != NULL);
+
+    // Immediate duplicate should be suppressed to stop burst spam.
+    agent_test_process_message("/start");
+    ASSERT(mock_llm_request_count() == 0);
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 0);
+    ASSERT(recv_telegram_text(telegram_q, text, sizeof(text)) == 0);
+
+    vQueueDelete(channel_q);
+    vQueueDelete(telegram_q);
+    return 0;
+}
+
 int test_agent_all(void)
 {
     int failures = 0;
@@ -254,6 +289,13 @@ int test_agent_all(void)
 
     printf("  channel_output_allows_long_response... ");
     if (test_channel_output_allows_long_response() == 0) {
+        printf("OK\n");
+    } else {
+        failures++;
+    }
+
+    printf("  start_command_bypasses_llm_and_debounces... ");
+    if (test_start_command_bypasses_llm_and_debounces() == 0) {
         printf("OK\n");
     } else {
         failures++;
