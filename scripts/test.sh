@@ -58,6 +58,7 @@ run_host_tests() {
         test_telegram_update.c \
         test_agent.c \
         test_tools_gpio_policy.c \
+        test_llm_auth.c \
         test_runner.c \
         mock_esp.c \
         mock_llm.c \
@@ -71,6 +72,7 @@ run_host_tests() {
         ../../main/text_buffer.c \
         ../../main/boot_guard.c \
         ../../main/memory_keys.c \
+        ../../main/llm_auth.c \
         ../../main/telegram_update.c \
         ../../main/agent.c \
         ../../main/tools_gpio.c \

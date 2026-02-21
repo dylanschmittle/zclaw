@@ -54,6 +54,10 @@ typedef enum {
 #define LLM_DEFAULT_MODEL_OPENAI      "gpt-5.2"
 #define LLM_DEFAULT_MODEL_OPENROUTER  "minimax/minimax-m2.5"
 
+#define LLM_API_KEY_MAX_LEN       511
+#define LLM_API_KEY_BUF_SIZE      (LLM_API_KEY_MAX_LEN + 1)
+#define LLM_AUTH_HEADER_BUF_SIZE  (sizeof("Bearer ") - 1 + LLM_API_KEY_MAX_LEN + 1)
+
 #define LLM_MAX_TOKENS          1024
 #define HTTP_TIMEOUT_MS         30000   // 30 seconds for API calls
 

@@ -4,6 +4,7 @@ idf_component_register(
         "agent.c"
         "channel.c"
         "llm.c"
+        "llm_auth.c"
         "tools.c"
         "tools_common.c"
         "tools_gpio.c"

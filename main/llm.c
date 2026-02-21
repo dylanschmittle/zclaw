@@ -1,4 +1,5 @@
 #include "llm.h"
+#include "llm_auth.h"
 #include "channel.h"
 #include "config.h"
 #include "memory.h"
@@ -20,7 +21,7 @@ static const char *TAG = "llm";
 
 // Current backend configuration (loaded from NVS)
 static llm_backend_t s_backend = LLM_BACKEND_OPENAI;
-static char s_api_key[128] = {0};
+static char s_api_key[LLM_API_KEY_BUF_SIZE] = {0};
 static char s_model[64] = {0};
 
 #if !CONFIG_ZCLAW_STUB_LLM && !CONFIG_ZCLAW_EMULATOR_LIVE_LLM
@@ -76,13 +77,16 @@ esp_err_t llm_init(void)
     if (!memory_get(NVS_KEY_API_KEY, s_api_key, sizeof(s_api_key))) {
 #if defined(CONFIG_ZCLAW_CLAUDE_API_KEY)
         if (s_backend == LLM_BACKEND_ANTHROPIC && CONFIG_ZCLAW_CLAUDE_API_KEY[0] != '\0') {
-            strncpy(s_api_key, CONFIG_ZCLAW_CLAUDE_API_KEY, sizeof(s_api_key) - 1);
-            s_api_key[sizeof(s_api_key) - 1] = '\0';
-            ESP_LOGI(TAG, "Using compile-time Anthropic API key fallback");
+            if (llm_copy_api_key(s_api_key, sizeof(s_api_key), CONFIG_ZCLAW_CLAUDE_API_KEY)) {
+                ESP_LOGI(TAG, "Using compile-time Anthropic API key fallback");
+            } else {
+                ESP_LOGE(TAG, "Compile-time API key exceeds maximum supported length (%d)",
+                         LLM_API_KEY_MAX_LEN);
+            }
         } else
 #endif
         {
-            ESP_LOGW(TAG, "No API key configured");
+            ESP_LOGW(TAG, "No API key configured (or key exceeds %d bytes)", LLM_API_KEY_MAX_LEN);
         }
     }
 
@@ -252,8 +256,12 @@ esp_err_t llm_request(const char *request_json, char *response_buf, size_t respo
         esp_http_client_set_header(client, "anthropic-version", "2023-06-01");
     } else {
         // OpenAI and OpenRouter use Bearer token
-        char auth_header[150];
-        snprintf(auth_header, sizeof(auth_header), "Bearer %s", s_api_key);
+        char auth_header[LLM_AUTH_HEADER_BUF_SIZE];
+        if (!llm_build_bearer_auth_header(s_api_key, auth_header, sizeof(auth_header))) {
+            ESP_LOGE(TAG, "API key length exceeds supported authorization header capacity");
+            esp_http_client_cleanup(client);
+            return ESP_ERR_INVALID_SIZE;
+        }
         esp_http_client_set_header(client, "Authorization", auth_header);
 
         // OpenRouter needs additional headers
