@@ -323,16 +323,13 @@ body {
 .sidebar-utilities .utility-btn {
   width: 100%;
   text-align: left;
+  font-size: 0.73rem;
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
 }
 
 .utility-link {
   text-decoration: none;
-}
-
-.sidebar-utilities .readme-link {
-  font-size: 0.73rem;
-  padding: 0.3rem 0.45rem;
-  white-space: nowrap;
 }
 
 .sidebar-utilities .theme-switcher {
