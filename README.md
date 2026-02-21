@@ -11,7 +11,8 @@ The smallest possible AI personal assistant.
 
 Written in C. Runs on an ESP32. Or runs on many of them. Put one everywhere! Talk to your agent via Telegram for ~$5 in hardware. 
 
-Create scheduled tasks & custom tools, ask questions, and use sensors. ~910KB binary, easy flash, and terminal-based provisioning. MIT-licensed.
+Create scheduled tasks & custom tools, ask questions, and use sensors. 888kb binary, easy flash, and terminal-based provisioning. 
+As a rule, the binary will never exceed 888 kilobytes. MIT-licensed.
 
 <br clear="right" />
 
