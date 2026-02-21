@@ -34,6 +34,18 @@ static int s_history_len = 0;
 static char s_response_buf[LLM_RESPONSE_BUF_SIZE];
 static char s_tool_result_buf[TOOL_RESULT_BUF_SIZE];
 
+static void history_rollback_to(int marker, const char *reason)
+{
+    if (marker < 0 || marker > s_history_len || marker == s_history_len) {
+        return;
+    }
+
+    ESP_LOGW(TAG, "Rolling back conversation history (%d -> %d): %s",
+             s_history_len, marker, reason ? reason : "unknown");
+    memset(&s_history[marker], 0, (s_history_len - marker) * sizeof(conversation_msg_t));
+    s_history_len = marker;
+}
+
 // Add a message to history
 static void history_add(const char *role, const char *content,
                         bool is_tool_use, bool is_tool_result,
@@ -109,6 +121,7 @@ static void send_response(const char *text)
 static void process_message(const char *user_message)
 {
     ESP_LOGI(TAG, "Processing: %s", user_message);
+    int history_turn_start = s_history_len;
 
     // Get tools
     int tool_count;
@@ -135,6 +148,7 @@ static void process_message(const char *user_message)
 
         if (!request) {
             ESP_LOGE(TAG, "Failed to build request JSON");
+            history_rollback_to(history_turn_start, "request build failed");
             send_response("Error: Failed to build request");
             return;
         }
@@ -145,6 +159,7 @@ static void process_message(const char *user_message)
         char rate_reason[128];
         if (!ratelimit_check(rate_reason, sizeof(rate_reason))) {
             free(request);
+            history_rollback_to(history_turn_start, "rate limited");
             send_response(rate_reason);
             return;
         }
@@ -178,6 +193,7 @@ static void process_message(const char *user_message)
 
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "LLM request failed after %d retries", LLM_MAX_RETRIES);
+            history_rollback_to(history_turn_start, "llm request failed");
             send_response("Error: Failed to contact LLM API after retries");
             return;
         }
@@ -196,6 +212,7 @@ static void process_message(const char *user_message)
                                   tool_id, sizeof(tool_id),
                                   &tool_input)) {
             ESP_LOGE(TAG, "Failed to parse response");
+            history_rollback_to(history_turn_start, "llm response parse failed");
             send_response("Error: Failed to parse LLM response");
             json_free_parsed_response();
             return;
@@ -237,6 +254,7 @@ static void process_message(const char *user_message)
                 history_add("assistant", text_out, false, false, NULL, NULL);
                 send_response(text_out);
             } else {
+                history_add("assistant", "(No response from Claude)", false, false, NULL, NULL);
                 send_response("(No response from Claude)");
             }
             json_free_parsed_response();
@@ -246,6 +264,7 @@ static void process_message(const char *user_message)
 
     if (!done) {
         ESP_LOGW(TAG, "Max tool rounds reached");
+        history_add("assistant", "(Reached max tool iterations)", false, false, NULL, NULL);
         send_response("(Reached max tool iterations)");
     }
 }

@@ -18,6 +18,7 @@ static llm_result_t s_results[MOCK_MAX_RESULTS];
 static int s_result_count = 0;
 static int s_result_index = 0;
 static int s_request_count = 0;
+static char s_last_request[LLM_REQUEST_BUF_SIZE];
 
 void mock_llm_reset(void)
 {
@@ -25,6 +26,7 @@ void mock_llm_reset(void)
     s_result_count = 0;
     s_result_index = 0;
     s_request_count = 0;
+    s_last_request[0] = '\0';
 }
 
 void mock_llm_set_backend(llm_backend_t backend, const char *model)
@@ -59,6 +61,11 @@ int mock_llm_request_count(void)
     return s_request_count;
 }
 
+const char *mock_llm_last_request_json(void)
+{
+    return s_last_request;
+}
+
 esp_err_t llm_init(void)
 {
     return ESP_OK;
@@ -70,7 +77,11 @@ esp_err_t llm_request(const char *request_json, char *response_buf, size_t respo
     const char *default_response =
         "{\"content\":[{\"type\":\"text\",\"text\":\"mock ok\"}],\"stop_reason\":\"end_turn\"}";
 
-    (void)request_json;
+    if (request_json) {
+        snprintf(s_last_request, sizeof(s_last_request), "%s", request_json);
+    } else {
+        s_last_request[0] = '\0';
+    }
     s_request_count++;
 
     if (s_result_index < s_result_count) {

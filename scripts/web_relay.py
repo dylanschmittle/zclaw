@@ -223,7 +223,7 @@ class SerialAgentBridge:
         self._serial.write(payload)
         self._serial.flush()
         if self.log_serial:
-            logging.debug("serial>> %s", line)
+            logging.info("serial>> %s", line)
 
     def _read_response_lines(self, sent_prompt: str) -> list[str]:
         if self._serial is None:
@@ -245,7 +245,7 @@ class SerialAgentBridge:
 
             line = raw_line.decode("utf-8", errors="replace").strip("\r\n")
             if self.log_serial:
-                logging.debug("serial<< %s", line)
+                logging.info("serial<< %s", line)
 
             if not line:
                 if response_lines:
@@ -942,7 +942,16 @@ def parse_args() -> argparse.Namespace:
         default=0.25,
         help="Mock response latency in seconds (default: 0.25)",
     )
-    parser.add_argument("--log-serial", action="store_true", help="Log serial traffic")
+    parser.add_argument(
+        "--log-serial",
+        action="store_true",
+        help="Log serial traffic at INFO level",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path for an additional log file sink",
+    )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     return parser.parse_args()
 
@@ -972,12 +981,21 @@ def run_server(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
-    args = parse_args()
+def configure_logging(args: argparse.Namespace) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if args.log_file:
+        handlers.append(logging.FileHandler(args.log_file, encoding="utf-8"))
+
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
+        handlers=handlers,
     )
+
+
+def main() -> int:
+    args = parse_args()
+    configure_logging(args)
 
     try:
         return run_server(args)

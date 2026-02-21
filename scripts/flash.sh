@@ -104,6 +104,8 @@ print_port_busy_help() {
     echo "  ./scripts/flash.sh $port"
     echo "or:"
     echo "  ./scripts/flash.sh --kill-monitor $port"
+    echo "or:"
+    echo "  ./scripts/release-port.sh $port"
 }
 
 print_port_permission_help() {
@@ -138,7 +140,10 @@ is_idf_monitor_process() {
     local pid="$1"
     local cmdline
 
-    cmdline="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    cmdline="$(ps -p "$pid" -o 'command=' 2>/dev/null || true)"
+    if [ -z "$cmdline" ]; then
+        cmdline="$(ps -p "$pid" -o command 2>/dev/null | sed -n '2p' | sed -E 's/^[[:space:]]+//')"
+    fi
     case "$cmdline" in
         *esp_idf_monitor*|*idf_monitor.py*)
             return 0

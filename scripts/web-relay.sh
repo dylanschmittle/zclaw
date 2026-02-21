@@ -21,6 +21,7 @@ usage() {
     echo "  $0 /dev/cu.usbmodem1101 --host 0.0.0.0 --port 8787"
     echo "  $0 --kill-monitor --serial-port /dev/cu.usbmodem1101 --host 0.0.0.0 --port 8787"
     echo "  $0 --mock-agent --host 0.0.0.0 --port 8787"
+    echo "  $0 --serial-port /dev/cu.usbmodem1101 --log-file /tmp/zclaw-relay.log --log-serial"
     echo ""
     echo "Wrapper-only options:"
     echo "  --kill-monitor   Stop ESP-IDF monitor holders on the selected serial port"
@@ -153,6 +154,8 @@ print_port_busy_help() {
     echo "  ./scripts/web-relay.sh --serial-port $port"
     echo "or:"
     echo "  ./scripts/web-relay.sh --kill-monitor --serial-port $port"
+    echo "or:"
+    echo "  ./scripts/release-port.sh $port"
 }
 
 port_holder_pids() {
@@ -172,7 +175,10 @@ is_idf_monitor_process() {
     local pid="$1"
     local cmdline
 
-    cmdline="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    cmdline="$(ps -p "$pid" -o 'command=' 2>/dev/null || true)"
+    if [ -z "$cmdline" ]; then
+        cmdline="$(ps -p "$pid" -o command 2>/dev/null | sed -n '2p' | sed -E 's/^[[:space:]]+//')"
+    fi
     case "$cmdline" in
         *esp_idf_monitor*|*idf_monitor.py*)
             return 0
@@ -250,12 +256,12 @@ while [ "$#" -gt 0 ]; do
             PORT="${1#*=}"
             shift
             ;;
-        --host|--port|--baud|--serial-timeout|--response-timeout|--idle-timeout|--mock-latency)
+        --host|--port|--baud|--serial-timeout|--response-timeout|--idle-timeout|--mock-latency|--log-file)
             require_value_arg "$1" "${2:-}"
             RELAY_ARGS+=("$1" "$2")
             shift 2
             ;;
-        --host=*|--port=*|--baud=*|--serial-timeout=*|--response-timeout=*|--idle-timeout=*|--mock-latency=*)
+        --host=*|--port=*|--baud=*|--serial-timeout=*|--response-timeout=*|--idle-timeout=*|--mock-latency=*|--log-file=*)
             RELAY_ARGS+=("$1")
             shift
             ;;

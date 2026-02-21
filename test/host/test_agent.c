@@ -149,6 +149,45 @@ TEST(fails_after_max_retries_without_extra_sleep)
     return 0;
 }
 
+TEST(failed_turn_does_not_pollute_followup_prompt)
+{
+    QueueHandle_t channel_q;
+    char text[CHANNEL_RX_BUF_SIZE];
+    const char *success =
+        "{\"content\":[{\"type\":\"text\",\"text\":\"fresh response\"}],\"stop_reason\":\"end_turn\"}";
+    const char *last_request = NULL;
+
+    reset_state();
+
+    channel_q = xQueueCreate(4, sizeof(channel_msg_t));
+    ASSERT(channel_q != NULL);
+    agent_test_set_queues(channel_q, NULL);
+
+    ASSERT(mock_llm_push_result(ESP_FAIL, NULL));
+    ASSERT(mock_llm_push_result(ESP_FAIL, NULL));
+    ASSERT(mock_llm_push_result(ESP_FAIL, NULL));
+    ASSERT(mock_llm_push_result(ESP_OK, success));
+
+    agent_test_process_message("is this really on a tiny board");
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT_STR_EQ(text, "Error: Failed to contact LLM API after retries");
+
+    agent_test_process_message("hello");
+    ASSERT(recv_channel_text(channel_q, text, sizeof(text)) == 1);
+    ASSERT_STR_EQ(text, "fresh response");
+
+    ASSERT(mock_llm_request_count() == 4);
+    ASSERT(mock_ratelimit_record_count() == 1);
+
+    last_request = mock_llm_last_request_json();
+    ASSERT(last_request != NULL);
+    ASSERT(strstr(last_request, "is this really on a tiny board") == NULL);
+    ASSERT(strstr(last_request, "hello") != NULL);
+
+    vQueueDelete(channel_q);
+    return 0;
+}
+
 int test_agent_all(void)
 {
     int failures = 0;
@@ -171,6 +210,13 @@ int test_agent_all(void)
 
     printf("  fails_after_max_retries_without_extra_sleep... ");
     if (test_fails_after_max_retries_without_extra_sleep() == 0) {
+        printf("OK\n");
+    } else {
+        failures++;
+    }
+
+    printf("  failed_turn_does_not_pollute_followup_prompt... ");
+    if (test_failed_turn_does_not_pollute_followup_prompt() == 0) {
         printf("OK\n");
     } else {
         failures++;

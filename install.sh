@@ -96,7 +96,7 @@ Usage: ./install.sh [options]
 Options:
   --build / --no-build                  Build firmware now
   --flash / --no-flash                  Flash firmware after successful build
-  --flash-mode standard|secure          Default flash mode when flashing
+  --flash-mode standard|secure          Explicit flash mode for this run (default: standard)
   --provision / --no-provision          Provision credentials after successful flash
   --monitor / --no-monitor              Open serial monitor after standard flash
   --port <serial-port>                  Use this serial port for flash/monitor
@@ -844,36 +844,21 @@ if [ "$BUILD_SUCCESS" = true ]; then
             fi
         fi
 
-        FLASH_MODE_CHOICE=""
-        if [ "$FORCE_FLASH" != "n" ]; then
-            echo ""
-            echo "Flash options:"
-            echo ""
-            echo "  1. Standard flash (default)"
-            echo "     Credentials stored unencrypted. Simple, easy to re-flash."
-            echo ""
-            echo "  2. Secure flash (enables flash encryption)"
-            echo "     Credentials encrypted. PERMANENT - cannot be undone."
-            echo "     Saves encryption key to keys/ for future flashing."
-            echo ""
-            echo "Both flash scripts auto-detect board chip and can switch target if needed."
-            echo ""
-            resolve_flash_mode
-            print_status "Selected flash mode: $(flash_mode_name "$FLASH_MODE_CHOICE")"
+        FLASH_MODE_CHOICE="1"
+        if [ -n "$FORCE_FLASH_MODE" ]; then
+            FLASH_MODE_CHOICE="$FORCE_FLASH_MODE"
+            if [ "$FLASH_MODE_CHOICE" = "2" ]; then
+                print_warning "Encrypted flash selected via --flash-mode secure (flash encryption, not secure boot)."
+            else
+                print_status "Flash mode selected via --flash-mode standard."
+            fi
+        else
+            print_status "Default flash mode: standard"
+            echo "Use --flash-mode secure to enable flash encryption (not secure boot)."
         fi
 
-        if ask_yes_no "Flash firmware now using $(flash_mode_name "${FLASH_MODE_CHOICE:-1}") mode?" "y" "FLASH_NOW" "$FORCE_FLASH"; then
+        if ask_yes_no "Flash firmware now? (mode: $(flash_mode_name "$FLASH_MODE_CHOICE"))" "y" "FLASH_NOW" "$FORCE_FLASH"; then
             FLASH_REQUESTED=true
-
-            if [ -z "$FLASH_MODE_CHOICE" ]; then
-                if [ -n "$FORCE_FLASH_MODE" ]; then
-                    FLASH_MODE_CHOICE="$FORCE_FLASH_MODE"
-                elif [ "$(get_preference FLASH_MODE)" = "2" ]; then
-                    FLASH_MODE_CHOICE="2"
-                else
-                    FLASH_MODE_CHOICE="1"
-                fi
-            fi
 
             echo ""
             echo -e "${YELLOW}Tip: If flash fails, hold BOOT button while pressing RESET${NC}"
@@ -888,10 +873,10 @@ if [ "$BUILD_SUCCESS" = true ]; then
 
                 if "${flash_cmd[@]}"; then
                     echo ""
-                    print_status "Secure flash complete!"
+                    print_status "Encrypted flash complete!"
                     FLASH_SUCCESS=true
                 else
-                    print_error "Secure flash failed"
+                    print_error "Encrypted flash failed"
                 fi
             else
                 flash_cmd=(./scripts/flash.sh)

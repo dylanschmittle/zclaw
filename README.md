@@ -76,6 +76,7 @@ This bootstrap script clones/updates zclaw and then runs `./install.sh`. Works o
 
 It also points you to flash helpers that auto-detect serial port/chip and can switch `idf.py` target on mismatch.
 It remembers your choices in `~/.config/zclaw/install.env` (disable with `--no-remember`).
+Interactive `install.sh` flashing defaults to standard mode; flash encryption is only enabled with `--flash-mode secure`.
 
 <details>
 <summary>You can also preseed install flags (click to expand)</summary>
@@ -442,6 +443,14 @@ For enhanced security, enable **flash encryption**:
 ```bash
 ./scripts/flash-secure.sh
 ```
+
+Or use the installer with explicit opt-in:
+
+```bash
+./install.sh --build --flash --flash-mode secure
+```
+
+`--flash-mode secure` enables flash encryption only (not secure boot).
 
 For deployed devices, prefer:
 
