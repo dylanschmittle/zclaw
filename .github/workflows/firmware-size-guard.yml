@@ -12,11 +12,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - board: generic_esp32c3
-            label: "ESP32-C3 (1472 KiB)"
-          - board: xiao_esp32s3_sense
-            label: "XIAO S3 Sense (3968 KiB)"
+        board:
+          - generic_esp32c3
+          - generic_esp32s3
+          - generic_esp32c6
+          - xiao_esp32s3_sense
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
           fi
           echo "sdkconfig_defaults=$SDKCONFIG_DEFAULTS" >> "$GITHUB_OUTPUT"
 
-      - name: Build firmware (${{ matrix.label }})
+      - name: Build firmware (${{ matrix.board }})
         run: |
           . "$IDF_PATH/export.sh"
           idf.py \
@@ -43,7 +43,7 @@ jobs:
             -D SDKCONFIG_DEFAULTS="${{ steps.board.outputs.sdkconfig_defaults }}" \
             build
 
-      - name: Enforce binary size budget (${{ matrix.label }})
+      - name: Enforce binary size budget (${{ matrix.board }})
         run: |
           ./scripts/check-binary-size.sh \
             --build-dir "build-${{ matrix.board }}" \

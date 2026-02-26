@@ -1,2 +1,7 @@
 # Generic ESP32-C3 — no board-specific overrides
 # Uses sdkconfig.defaults as base (target, flash, partitions set there)
+
+# --- Feature gates: explicitly disabled (no camera/mic/PSRAM on this board) ---
+# CONFIG_ZCLAW_HAS_CAMERA is not set
+# CONFIG_ZCLAW_HAS_MICROPHONE is not set
+# CONFIG_ZCLAW_HAS_PSRAM is not set

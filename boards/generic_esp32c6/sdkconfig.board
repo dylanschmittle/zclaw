@@ -1,2 +1,7 @@
 # Generic ESP32-C6 board overrides
 CONFIG_IDF_TARGET="esp32c6"
+
+# --- Feature gates: explicitly disabled (no camera/mic/PSRAM on this board) ---
+# CONFIG_ZCLAW_HAS_CAMERA is not set
+# CONFIG_ZCLAW_HAS_MICROPHONE is not set
+# CONFIG_ZCLAW_HAS_PSRAM is not set
