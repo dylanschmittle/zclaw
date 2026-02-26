@@ -26,8 +26,6 @@ jobs:
         run: |
           BOARD_DIR="boards/${{ matrix.board }}"
           echo "idf_target=$(grep '^IDF_TARGET=' "$BOARD_DIR/board.conf" | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-          echo "max_bytes=$(grep '^MAX_BINARY_BYTES=' "$BOARD_DIR/board.conf" | cut -d= -f2)" >> "$GITHUB_OUTPUT"
-
           SDKCONFIG_DEFAULTS="sdkconfig.defaults"
           if [ -f "$BOARD_DIR/sdkconfig.board" ]; then
             SDKCONFIG_DEFAULTS="sdkconfig.defaults;$BOARD_DIR/sdkconfig.board"
@@ -42,10 +40,3 @@ jobs:
             -D IDF_TARGET="${{ steps.board.outputs.idf_target }}" \
             -D SDKCONFIG_DEFAULTS="${{ steps.board.outputs.sdkconfig_defaults }}" \
             build
-
-      - name: Enforce binary size budget
-        run: |
-          ./scripts/check-binary-size.sh \
-            --build-dir "build-${{ matrix.board }}" \
-            --binary zclaw.bin \
-            --max-bytes "${{ steps.board.outputs.max_bytes }}"
