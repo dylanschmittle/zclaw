@@ -1,0 +1,2 @@
+# Generic ESP32-C6 board overrides
+CONFIG_IDF_TARGET="esp32c6"

@@ -55,6 +55,111 @@ menu "zclaw Configuration"
             use real provider APIs without guest WiFi/TLS networking.
             Intended for emulator testing only.
 
+    menu "Board Features"
+        config ZCLAW_HAS_CAMERA
+            bool "Camera support (OV2640)"
+            default n
+            help
+                Enable camera capture via OV2640 sensor.
+                Requires a board with a DVP camera interface (e.g., XIAO ESP32-S3 Sense).
+
+        config ZCLAW_HAS_MICROPHONE
+            bool "Microphone support (I2S PDM)"
+            default n
+            help
+                Enable audio capture via I2S PDM digital microphone.
+                Requires a board with a built-in mic (e.g., XIAO ESP32-S3 Sense).
+
+        config ZCLAW_HAS_PSRAM
+            bool "PSRAM available"
+            default n
+            help
+                Board has external PSRAM. Enables larger buffers for camera
+                frames, audio data, and LLM payloads.
+    endmenu
+
+    menu "Camera Pins (OV2640 DVP)"
+        depends on ZCLAW_HAS_CAMERA
+
+        config ZCLAW_CAM_PIN_PWDN
+            int "PWDN pin (-1 = not used)"
+            range -1 48
+            default -1
+        config ZCLAW_CAM_PIN_RESET
+            int "RESET pin (-1 = not used)"
+            range -1 48
+            default -1
+        config ZCLAW_CAM_PIN_XCLK
+            int "XCLK pin"
+            range 0 48
+            default 10
+        config ZCLAW_CAM_PIN_SIOD
+            int "SIOD (I2C SDA) pin"
+            range 0 48
+            default 40
+        config ZCLAW_CAM_PIN_SIOC
+            int "SIOC (I2C SCL) pin"
+            range 0 48
+            default 39
+        config ZCLAW_CAM_PIN_D7
+            int "D7 pin"
+            range 0 48
+            default 48
+        config ZCLAW_CAM_PIN_D6
+            int "D6 pin"
+            range 0 48
+            default 11
+        config ZCLAW_CAM_PIN_D5
+            int "D5 pin"
+            range 0 48
+            default 12
+        config ZCLAW_CAM_PIN_D4
+            int "D4 pin"
+            range 0 48
+            default 14
+        config ZCLAW_CAM_PIN_D3
+            int "D3 pin"
+            range 0 48
+            default 16
+        config ZCLAW_CAM_PIN_D2
+            int "D2 pin"
+            range 0 48
+            default 18
+        config ZCLAW_CAM_PIN_D1
+            int "D1 pin"
+            range 0 48
+            default 17
+        config ZCLAW_CAM_PIN_D0
+            int "D0 pin"
+            range 0 48
+            default 15
+        config ZCLAW_CAM_PIN_VSYNC
+            int "VSYNC pin"
+            range 0 48
+            default 38
+        config ZCLAW_CAM_PIN_HREF
+            int "HREF pin"
+            range 0 48
+            default 47
+        config ZCLAW_CAM_PIN_PCLK
+            int "PCLK pin"
+            range 0 48
+            default 13
+    endmenu
+
+    menu "Microphone Pins (I2S PDM)"
+        depends on ZCLAW_HAS_MICROPHONE
+
+        config ZCLAW_MIC_PIN_CLK
+            int "I2S clock pin"
+            range 0 48
+            default 42
+        config ZCLAW_MIC_PIN_DATA
+            int "I2S data pin"
+            range 0 48
+            default 41
+    endmenu
+
     menu "GPIO Tool Safety"
         config ZCLAW_GPIO_MIN_PIN
             int "Minimum GPIO pin exposed to tools"

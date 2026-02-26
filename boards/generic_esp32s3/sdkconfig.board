@@ -1,0 +1,2 @@
+# Generic ESP32-S3 board overrides
+CONFIG_IDF_TARGET="esp32s3"

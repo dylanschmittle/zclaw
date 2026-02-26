@@ -1,0 +1,2 @@
+# Generic ESP32-C3 — no board-specific overrides
+# Uses sdkconfig.defaults as base (target, flash, partitions set there)

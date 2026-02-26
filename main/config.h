@@ -75,6 +75,151 @@ typedef enum {
     "you'll receive an action to execute - carry it out using your built-in tools."
 
 // -----------------------------------------------------------------------------
+// Board Feature Gates (set via Kconfig / sdkconfig.board)
+// -----------------------------------------------------------------------------
+#ifdef CONFIG_ZCLAW_HAS_CAMERA
+#define ZCLAW_HAS_CAMERA        1
+#else
+#define ZCLAW_HAS_CAMERA        0
+#endif
+
+#ifdef CONFIG_ZCLAW_HAS_MICROPHONE
+#define ZCLAW_HAS_MICROPHONE    1
+#else
+#define ZCLAW_HAS_MICROPHONE    0
+#endif
+
+#ifdef CONFIG_ZCLAW_HAS_PSRAM
+#define ZCLAW_HAS_PSRAM         1
+#else
+#define ZCLAW_HAS_PSRAM         0
+#endif
+
+// -----------------------------------------------------------------------------
+// Camera Configuration (OV2640 DVP)
+// -----------------------------------------------------------------------------
+#if ZCLAW_HAS_CAMERA
+
+#ifdef CONFIG_ZCLAW_CAM_PIN_PWDN
+#define CAM_PIN_PWDN    CONFIG_ZCLAW_CAM_PIN_PWDN
+#else
+#define CAM_PIN_PWDN    (-1)
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_RESET
+#define CAM_PIN_RESET   CONFIG_ZCLAW_CAM_PIN_RESET
+#else
+#define CAM_PIN_RESET   (-1)
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_XCLK
+#define CAM_PIN_XCLK    CONFIG_ZCLAW_CAM_PIN_XCLK
+#else
+#define CAM_PIN_XCLK    10
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_SIOD
+#define CAM_PIN_SIOD    CONFIG_ZCLAW_CAM_PIN_SIOD
+#else
+#define CAM_PIN_SIOD    40
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_SIOC
+#define CAM_PIN_SIOC    CONFIG_ZCLAW_CAM_PIN_SIOC
+#else
+#define CAM_PIN_SIOC    39
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D7
+#define CAM_PIN_D7      CONFIG_ZCLAW_CAM_PIN_D7
+#else
+#define CAM_PIN_D7      48
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D6
+#define CAM_PIN_D6      CONFIG_ZCLAW_CAM_PIN_D6
+#else
+#define CAM_PIN_D6      11
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D5
+#define CAM_PIN_D5      CONFIG_ZCLAW_CAM_PIN_D5
+#else
+#define CAM_PIN_D5      12
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D4
+#define CAM_PIN_D4      CONFIG_ZCLAW_CAM_PIN_D4
+#else
+#define CAM_PIN_D4      14
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D3
+#define CAM_PIN_D3      CONFIG_ZCLAW_CAM_PIN_D3
+#else
+#define CAM_PIN_D3      16
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D2
+#define CAM_PIN_D2      CONFIG_ZCLAW_CAM_PIN_D2
+#else
+#define CAM_PIN_D2      18
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D1
+#define CAM_PIN_D1      CONFIG_ZCLAW_CAM_PIN_D1
+#else
+#define CAM_PIN_D1      17
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_D0
+#define CAM_PIN_D0      CONFIG_ZCLAW_CAM_PIN_D0
+#else
+#define CAM_PIN_D0      15
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_VSYNC
+#define CAM_PIN_VSYNC   CONFIG_ZCLAW_CAM_PIN_VSYNC
+#else
+#define CAM_PIN_VSYNC   38
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_HREF
+#define CAM_PIN_HREF    CONFIG_ZCLAW_CAM_PIN_HREF
+#else
+#define CAM_PIN_HREF    47
+#endif
+#ifdef CONFIG_ZCLAW_CAM_PIN_PCLK
+#define CAM_PIN_PCLK    CONFIG_ZCLAW_CAM_PIN_PCLK
+#else
+#define CAM_PIN_PCLK    13
+#endif
+
+#define CAM_XCLK_FREQ_HZ   20000000    // 20 MHz XCLK for OV2640
+#define CAM_JPEG_QUALITY    12          // 0-63, lower = better quality
+#define CAM_FB_COUNT        1           // Frame buffers (1 = single capture)
+
+#endif // ZCLAW_HAS_CAMERA
+
+// -----------------------------------------------------------------------------
+// Microphone Configuration (I2S PDM)
+// -----------------------------------------------------------------------------
+#if ZCLAW_HAS_MICROPHONE
+
+#ifdef CONFIG_ZCLAW_MIC_PIN_CLK
+#define MIC_PIN_CLK     CONFIG_ZCLAW_MIC_PIN_CLK
+#else
+#define MIC_PIN_CLK     42
+#endif
+#ifdef CONFIG_ZCLAW_MIC_PIN_DATA
+#define MIC_PIN_DATA    CONFIG_ZCLAW_MIC_PIN_DATA
+#else
+#define MIC_PIN_DATA    41
+#endif
+
+#define MIC_SAMPLE_RATE     16000       // 16 kHz for speech
+#define MIC_SAMPLE_BITS     16          // 16-bit samples
+#define MIC_CHANNEL_NUM     1           // Mono
+#define MIC_RECORD_SECS_MAX 10          // Max recording length
+
+#endif // ZCLAW_HAS_MICROPHONE
+
+// -----------------------------------------------------------------------------
+// PSRAM-aware buffer sizes
+// When PSRAM is available, use larger buffers for media payloads.
+// -----------------------------------------------------------------------------
+#if ZCLAW_HAS_PSRAM
+#define LLM_REQUEST_BUF_SIZE_PSRAM  65536   // 64KB with PSRAM
+#define LLM_RESPONSE_BUF_SIZE_PSRAM 65536   // 64KB with PSRAM
+#endif
+
+// -----------------------------------------------------------------------------
 // GPIO tool safety range (configurable via Kconfig)
 // -----------------------------------------------------------------------------
 #ifdef CONFIG_ZCLAW_GPIO_MIN_PIN
