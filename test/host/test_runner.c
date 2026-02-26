@@ -16,6 +16,7 @@ extern int test_telegram_update_all(void);
 extern int test_agent_all(void);
 extern int test_tools_gpio_policy_all(void);
 extern int test_llm_auth_all(void);
+extern int test_tools_media_all(void);
 
 int main(int argc, char *argv[])
 {
@@ -35,6 +36,7 @@ int main(int argc, char *argv[])
     failures += test_agent_all();
     failures += test_tools_gpio_policy_all();
     failures += test_llm_auth_all();
+    failures += test_tools_media_all();
 
     printf("\n===================\n");
     if (failures == 0) {

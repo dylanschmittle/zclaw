@@ -1,6 +1,7 @@
 #include "json_util.h"
 #include "config.h"
 #include "tools.h"
+#include "tools_media.h"
 #include "user_tools.h"
 #include "llm.h"
 #include "cJSON.h"
@@ -111,11 +112,68 @@ static char *build_anthropic_request(
             cJSON *tool_result = cJSON_CreateObject();
             if (!content || !tool_result ||
                 !cJSON_AddStringToObject(tool_result, "type", "tool_result") ||
-                !cJSON_AddStringToObject(tool_result, "tool_use_id", history[i].tool_id) ||
-                !cJSON_AddStringToObject(tool_result, "content", history[i].content)) {
+                !cJSON_AddStringToObject(tool_result, "tool_use_id", history[i].tool_id)) {
                 cJSON_Delete(tool_result);
                 cJSON_Delete(msg);
                 goto fail;
+            }
+
+            // Check for pending image attached to this tool result
+            const char *img_b64 = NULL;
+            const char *img_tool_id = NULL;
+            if (media_has_pending_image() &&
+                media_get_pending_image(&img_b64, NULL, &img_tool_id) &&
+                strcmp(history[i].tool_id, img_tool_id) == 0) {
+                // Multi-content tool_result: image + text
+                cJSON *tr_content = cJSON_AddArrayToObject(tool_result, "content");
+                if (!tr_content) {
+                    cJSON_Delete(tool_result);
+                    cJSON_Delete(msg);
+                    goto fail;
+                }
+                // Image block
+                cJSON *img_block = cJSON_CreateObject();
+                cJSON *source = cJSON_CreateObject();
+                if (!img_block || !source ||
+                    !cJSON_AddStringToObject(img_block, "type", "image") ||
+                    !cJSON_AddStringToObject(source, "type", "base64") ||
+                    !cJSON_AddStringToObject(source, "media_type", "image/jpeg")) {
+                    cJSON_Delete(source);
+                    cJSON_Delete(img_block);
+                    cJSON_Delete(tool_result);
+                    cJSON_Delete(msg);
+                    goto fail;
+                }
+                // Use string reference to avoid copying large base64 data
+                cJSON *data_ref = cJSON_CreateStringReference(img_b64);
+                if (!data_ref) {
+                    cJSON_Delete(source);
+                    cJSON_Delete(img_block);
+                    cJSON_Delete(tool_result);
+                    cJSON_Delete(msg);
+                    goto fail;
+                }
+                cJSON_AddItemToObject(source, "data", data_ref);
+                cJSON_AddItemToObject(img_block, "source", source);
+                cJSON_AddItemToArray(tr_content, img_block);
+                // Text block
+                cJSON *text_block = cJSON_CreateObject();
+                if (!text_block ||
+                    !cJSON_AddStringToObject(text_block, "type", "text") ||
+                    !cJSON_AddStringToObject(text_block, "text", history[i].content)) {
+                    cJSON_Delete(text_block);
+                    cJSON_Delete(tool_result);
+                    cJSON_Delete(msg);
+                    goto fail;
+                }
+                cJSON_AddItemToArray(tr_content, text_block);
+            } else {
+                // Normal text-only tool_result
+                if (!cJSON_AddStringToObject(tool_result, "content", history[i].content)) {
+                    cJSON_Delete(tool_result);
+                    cJSON_Delete(msg);
+                    goto fail;
+                }
             }
 
             cJSON_AddItemToArray(content, tool_result);
@@ -342,6 +400,64 @@ static char *build_openai_request(
                 cJSON_Delete(msg);
                 goto fail;
             }
+
+            cJSON_AddItemToArray(messages, msg);
+
+            // If there's a pending image for this tool, add a vision user message
+            const char *img_b64 = NULL;
+            const char *img_tool_id = NULL;
+            if (media_has_pending_image() &&
+                media_get_pending_image(&img_b64, NULL, &img_tool_id) &&
+                strcmp(history[i].tool_id, img_tool_id) == 0) {
+                cJSON *vision_msg = cJSON_CreateObject();
+                if (!vision_msg ||
+                    !cJSON_AddStringToObject(vision_msg, "role", "user")) {
+                    cJSON_Delete(vision_msg);
+                    goto fail;
+                }
+                cJSON *v_content = cJSON_AddArrayToObject(vision_msg, "content");
+                if (!v_content) {
+                    cJSON_Delete(vision_msg);
+                    goto fail;
+                }
+                // Build data URL with string reference for base64 payload
+                size_t url_len = strlen("data:image/jpeg;base64,") + strlen(img_b64) + 1;
+                char *data_url = malloc(url_len);
+                if (!data_url) {
+                    cJSON_Delete(vision_msg);
+                    goto fail;
+                }
+                snprintf(data_url, url_len, "data:image/jpeg;base64,%s", img_b64);
+
+                cJSON *img_block = cJSON_CreateObject();
+                cJSON *img_url_obj = cJSON_CreateObject();
+                if (!img_block || !img_url_obj ||
+                    !cJSON_AddStringToObject(img_block, "type", "image_url") ||
+                    !cJSON_AddStringToObject(img_url_obj, "url", data_url)) {
+                    free(data_url);
+                    cJSON_Delete(img_url_obj);
+                    cJSON_Delete(img_block);
+                    cJSON_Delete(vision_msg);
+                    goto fail;
+                }
+                free(data_url);
+                cJSON_AddItemToObject(img_block, "image_url", img_url_obj);
+                cJSON_AddItemToArray(v_content, img_block);
+
+                cJSON *text_block = cJSON_CreateObject();
+                if (!text_block ||
+                    !cJSON_AddStringToObject(text_block, "type", "text") ||
+                    !cJSON_AddStringToObject(text_block, "text",
+                        "This is the photo from the capture_photo tool. Describe what you see.")) {
+                    cJSON_Delete(text_block);
+                    cJSON_Delete(vision_msg);
+                    goto fail;
+                }
+                cJSON_AddItemToArray(v_content, text_block);
+                cJSON_AddItemToArray(messages, vision_msg);
+            }
+            // Skip the normal cJSON_AddItemToArray below since we already added msg
+            continue;
         } else {
             // Regular message
             if (!cJSON_AddStringToObject(msg, "role", history[i].role) ||

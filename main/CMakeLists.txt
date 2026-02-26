@@ -24,6 +24,7 @@ set(ZCLAW_SRCS
     "ota.c"
     "boot_guard.c"
     "user_tools.c"
+    "tools_media.c"
 )
 
 set(ZCLAW_REQUIRES

@@ -1,6 +1,7 @@
 #include "tools.h"
 #include "tools_handlers.h"
 #include "user_tools.h"
+#include "config.h"
 #include "esp_log.h"
 #include <string.h>
 #include <stdio.h>
@@ -132,6 +133,23 @@ static const tool_def_t s_tools[] = {
         .input_schema_json = "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"Tool name to delete\"}},\"required\":[\"name\"]}",
         .execute = tools_delete_user_tool_handler
     },
+    // Media capture (feature-gated)
+#if ZCLAW_HAS_CAMERA
+    {
+        .name = "capture_photo",
+        .description = "Take a photo with the camera. Returns a JPEG image for visual analysis. Use this to see and describe the environment.",
+        .input_schema_json = "{\"type\":\"object\",\"properties\":{}}",
+        .execute = tools_capture_photo_handler
+    },
+#endif
+#if ZCLAW_HAS_MICROPHONE
+    {
+        .name = "record_audio",
+        .description = "Record audio from the microphone. Returns base64-encoded 16kHz 16-bit mono PCM data.",
+        .input_schema_json = "{\"type\":\"object\",\"properties\":{\"duration_ms\":{\"type\":\"integer\",\"description\":\"Recording duration in milliseconds (100-10000, default 3000)\"}},\"required\":[]}",
+        .execute = tools_record_audio_handler
+    },
+#endif
 };
 
 static const int s_tool_count = sizeof(s_tools) / sizeof(s_tools[0]);

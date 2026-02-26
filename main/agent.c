@@ -2,6 +2,7 @@
 #include "config.h"
 #include "llm.h"
 #include "tools.h"
+#include "tools_media.h"
 #include "user_tools.h"
 #include "json_util.h"
 #include "messages.h"
@@ -389,6 +390,9 @@ static void process_message(const char *user_message)
 
         free(request);
 
+        // Release pending media now that the request has been sent
+        media_release_pending();
+
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "LLM request failed after %d retries", LLM_MAX_RETRIES);
             history_rollback_to(history_turn_start, "llm request failed");
@@ -444,6 +448,11 @@ static void process_message(const char *user_message)
                 tools_execute(tool_name, tool_input, s_tool_result_buf, sizeof(s_tool_result_buf));
                 metrics.tool_us_total += elapsed_us_since(tool_started_us);
                 ESP_LOGI(TAG, "Tool result: %s", s_tool_result_buf);
+
+                // If capture_photo produced a pending image, tag it with this tool_id
+                if (strcmp(tool_name, "capture_photo") == 0 && media_has_pending_image()) {
+                    media_set_pending_tool_id(tool_id);
+                }
             }
 
             // Add tool_result to history
