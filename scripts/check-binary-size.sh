@@ -5,7 +5,7 @@ set -e
 
 BUILD_DIR="build"
 BINARY_NAME="zclaw.bin"
-MAX_BYTES=$((888 * 1024))
+MAX_BYTES=1507328
 
 usage() {
     cat << USAGE
@@ -14,7 +14,7 @@ Usage: $0 [--build-dir DIR] [--binary NAME] [--max-bytes N]
 Options:
   --build-dir DIR  Build directory (default: build)
   --binary NAME    Firmware binary filename in build dir (default: zclaw.bin)
-  --max-bytes N    Maximum allowed bytes (default: 909312 = 888 KiB)
+  --max-bytes N    Maximum allowed bytes (default: 1507328 = 1472 KiB, from ota_0 partition)
 USAGE
 }
 
@@ -75,4 +75,4 @@ if [ "$ACTUAL_BYTES" -gt "$MAX_BYTES" ]; then
     exit 1
 fi
 
-echo "PASS: binary is within 888 KiB budget."
+echo "PASS: binary is within ${MAX_KIB} KiB budget."

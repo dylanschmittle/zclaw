@@ -14,9 +14,9 @@ jobs:
       matrix:
         include:
           - board: generic_esp32c3
-            label: "ESP32-C3 (888 KiB)"
+            label: "ESP32-C3 (1472 KiB)"
           - board: xiao_esp32s3_sense
-            label: "XIAO S3 Sense (3840 KiB)"
+            label: "XIAO S3 Sense (3968 KiB)"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
