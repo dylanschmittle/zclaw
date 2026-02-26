@@ -4,6 +4,7 @@
 #include "agent.h"
 #include "llm.h"
 #include "tools.h"
+#include "tools_media.h"
 #include "telegram.h"
 #include "cron.h"
 #include "ratelimit.h"
@@ -422,6 +423,7 @@ void app_main(void)
     ESP_ERROR_CHECK(llm_init());
     ratelimit_init();
     tools_init();
+    media_init();
     channel_init();
 
     QueueHandle_t input_queue = xQueueCreate(INPUT_QUEUE_LENGTH, sizeof(channel_msg_t));
@@ -503,7 +505,10 @@ void app_main(void)
     // 11. Register tools
     tools_init();
 
-    // 12. Initialize USB serial channel
+    // 12. Initialize media capture (camera/mic if available)
+    media_init();
+
+    // 13. Initialize USB serial channel
     channel_init();
 
     // 13. Create queues

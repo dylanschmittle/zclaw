@@ -64,8 +64,9 @@ typedef enum {
 
 // -----------------------------------------------------------------------------
 // System Prompt
+// (Media capability suffix is appended after feature gates are defined below)
 // -----------------------------------------------------------------------------
-#define SYSTEM_PROMPT \
+#define SYSTEM_PROMPT_BASE \
     "You are zclaw, an AI agent running on an ESP32 microcontroller. " \
     "You have 400KB of RAM and run on bare metal with FreeRTOS. " \
     "You can control GPIO pins, store persistent memories, and set schedules. " \
@@ -94,6 +95,27 @@ typedef enum {
 #else
 #define ZCLAW_HAS_PSRAM         0
 #endif
+
+// System prompt with media capability suffix
+#if ZCLAW_HAS_CAMERA && ZCLAW_HAS_MICROPHONE
+#define SYSTEM_PROMPT SYSTEM_PROMPT_BASE \
+    " You have a camera and microphone. Use capture_photo to take photos and " \
+    "visually analyze the environment. Use record_audio to capture sound."
+#elif ZCLAW_HAS_CAMERA
+#define SYSTEM_PROMPT SYSTEM_PROMPT_BASE \
+    " You have a camera. Use capture_photo to take photos and visually analyze " \
+    "the environment."
+#elif ZCLAW_HAS_MICROPHONE
+#define SYSTEM_PROMPT SYSTEM_PROMPT_BASE \
+    " You have a microphone. Use record_audio to capture sound."
+#else
+#define SYSTEM_PROMPT SYSTEM_PROMPT_BASE
+#endif
+
+// -----------------------------------------------------------------------------
+// Media Capture Defaults
+// -----------------------------------------------------------------------------
+#define MEDIA_AUDIO_DEFAULT_MS  3000    // Default recording duration
 
 // -----------------------------------------------------------------------------
 // Camera Configuration (OV2640 DVP)

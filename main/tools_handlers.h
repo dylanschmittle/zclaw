@@ -37,4 +37,13 @@ bool tools_create_tool_handler(const cJSON *input, char *result, size_t result_l
 bool tools_list_user_tools_handler(const cJSON *input, char *result, size_t result_len);
 bool tools_delete_user_tool_handler(const cJSON *input, char *result, size_t result_len);
 
+// Media capture (feature-gated)
+#include "config.h"
+#if ZCLAW_HAS_CAMERA
+bool tools_capture_photo_handler(const cJSON *input, char *result, size_t result_len);
+#endif
+#if ZCLAW_HAS_MICROPHONE
+bool tools_record_audio_handler(const cJSON *input, char *result, size_t result_len);
+#endif
+
 #endif // TOOLS_HANDLERS_H
