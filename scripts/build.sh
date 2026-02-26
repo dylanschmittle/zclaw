@@ -1,5 +1,11 @@
 #!/bin/bash
 # Build zclaw firmware
+#
+# Usage:
+#   ./scripts/build.sh                              # Default build (generic_esp32c3)
+#   ./scripts/build.sh --board xiao_esp32s3_sense    # Build for XIAO S3 Sense
+#   ./scripts/build.sh --board generic_esp32s3       # Build for generic ESP32-S3
+#   ./scripts/build.sh --list-boards                 # Show available boards
 
 set -e
 
@@ -8,15 +14,48 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
+BOARD=""
 PAD_TARGET_BYTES=""
 
 usage() {
-    echo "Usage: $0 [--pad-to-888kb]"
-    echo "  --pad-to-888kb  Create build/zclaw-888kb.bin padded to exactly 888 KiB (909312 bytes)"
+    cat << USAGE
+Usage: $0 [--board BOARD] [--pad-to-888kb] [--list-boards]
+
+Options:
+  --board BOARD     Build for a specific board (see boards/ directory)
+  --list-boards     List available board configurations
+  --pad-to-888kb    Create padded binary to exactly 888 KiB (909312 bytes)
+USAGE
+}
+
+list_boards() {
+    echo "Available boards:"
+    echo ""
+    for dir in "$PROJECT_DIR"/boards/*/; do
+        local name
+        name="$(basename "$dir")"
+        if [ -f "$dir/board.conf" ]; then
+            local board_name target flash
+            board_name="$(grep '^BOARD_NAME=' "$dir/board.conf" | head -1 | cut -d'"' -f2)"
+            target="$(grep '^IDF_TARGET=' "$dir/board.conf" | head -1 | cut -d= -f2)"
+            flash="$(grep '^FLASH_SIZE=' "$dir/board.conf" | head -1 | cut -d= -f2)"
+            printf "  %-28s %s (%s, %s)\n" "$name" "$board_name" "$target" "$flash"
+        fi
+    done
+    echo ""
+    echo "Usage: $0 --board <name>"
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --board)
+            BOARD="$2"
+            shift 2
+            ;;
+        --list-boards)
+            list_boards
+            exit 0
+            ;;
         --pad-to-888kb)
             PAD_TARGET_BYTES=$((888 * 1024))
             shift
@@ -76,12 +115,50 @@ source_idf_env() {
 
 source_idf_env || exit 1
 
-echo "Building zclaw..."
-idf.py build
+# --- Resolve board configuration ---
+if [ -n "$BOARD" ]; then
+    BOARD_DIR="$PROJECT_DIR/boards/$BOARD"
+    if [ ! -f "$BOARD_DIR/board.conf" ]; then
+        echo "Error: Board '$BOARD' not found in boards/ directory."
+        echo ""
+        list_boards
+        exit 1
+    fi
+
+    # Load board config
+    IDF_TARGET="$(grep '^IDF_TARGET=' "$BOARD_DIR/board.conf" | cut -d= -f2)"
+    BOARD_NAME="$(grep '^BOARD_NAME=' "$BOARD_DIR/board.conf" | cut -d'"' -f2)"
+
+    BUILD_DIR="build-$BOARD"
+
+    # Build SDKCONFIG_DEFAULTS: base defaults + board overrides
+    SDKCONFIG_DEFAULTS="sdkconfig.defaults"
+    if [ -f "$BOARD_DIR/sdkconfig.board" ]; then
+        SDKCONFIG_DEFAULTS="sdkconfig.defaults;$BOARD_DIR/sdkconfig.board"
+    fi
+
+    echo "Building zclaw for: $BOARD_NAME"
+    echo "  Target:     $IDF_TARGET"
+    echo "  Build dir:  $BUILD_DIR"
+    echo "  Config:     $SDKCONFIG_DEFAULTS"
+    echo ""
+
+    idf.py \
+        -B "$BUILD_DIR" \
+        -D IDF_TARGET="$IDF_TARGET" \
+        -D SDKCONFIG_DEFAULTS="$SDKCONFIG_DEFAULTS" \
+        build
+else
+    # Default build (generic esp32c3, uses sdkconfig.defaults as-is)
+    BUILD_DIR="build"
+
+    echo "Building zclaw (default: esp32c3)..."
+    idf.py build
+fi
 
 if [ -n "$PAD_TARGET_BYTES" ]; then
-    SRC_BIN="$PROJECT_DIR/build/zclaw.bin"
-    OUT_BIN="$PROJECT_DIR/build/zclaw-888kb.bin"
+    SRC_BIN="$PROJECT_DIR/$BUILD_DIR/zclaw.bin"
+    OUT_BIN="$PROJECT_DIR/$BUILD_DIR/zclaw-888kb.bin"
 
     if [ ! -f "$SRC_BIN" ]; then
         echo "Error: Expected firmware binary not found at $SRC_BIN"
@@ -92,7 +169,7 @@ if [ -n "$PAD_TARGET_BYTES" ]; then
     CUR_SIZE="$(file_size_bytes "$OUT_BIN")"
 
     if [ "$CUR_SIZE" -gt "$PAD_TARGET_BYTES" ]; then
-        echo "Error: build/zclaw.bin is ${CUR_SIZE} bytes, larger than 888 KiB target (${PAD_TARGET_BYTES} bytes)."
+        echo "Error: zclaw.bin is ${CUR_SIZE} bytes, larger than 888 KiB target (${PAD_TARGET_BYTES} bytes)."
         exit 1
     fi
 
@@ -107,7 +184,7 @@ if [ -n "$PAD_TARGET_BYTES" ]; then
         exit 1
     fi
 
-    echo "Padded binary created: build/zclaw-888kb.bin ($FINAL_SIZE bytes)"
+    echo "Padded binary created: $BUILD_DIR/zclaw-888kb.bin ($FINAL_SIZE bytes)"
 fi
 
 echo ""

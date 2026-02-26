@@ -9,14 +9,43 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:v5.4
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: generic_esp32c3
+            label: "ESP32-C3 (888 KiB)"
+          - board: xiao_esp32s3_sense
+            label: "XIAO S3 Sense (3840 KiB)"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build firmware
+      - name: Read board config
+        id: board
+        run: |
+          BOARD_DIR="boards/${{ matrix.board }}"
+          echo "idf_target=$(grep '^IDF_TARGET=' "$BOARD_DIR/board.conf" | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "max_bytes=$(grep '^MAX_BINARY_BYTES=' "$BOARD_DIR/board.conf" | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+          SDKCONFIG_DEFAULTS="sdkconfig.defaults"
+          if [ -f "$BOARD_DIR/sdkconfig.board" ]; then
+            SDKCONFIG_DEFAULTS="sdkconfig.defaults;$BOARD_DIR/sdkconfig.board"
+          fi
+          echo "sdkconfig_defaults=$SDKCONFIG_DEFAULTS" >> "$GITHUB_OUTPUT"
+
+      - name: Build firmware (${{ matrix.label }})
         run: |
           . "$IDF_PATH/export.sh"
-          idf.py build
+          idf.py \
+            -B "build-${{ matrix.board }}" \
+            -D IDF_TARGET="${{ steps.board.outputs.idf_target }}" \
+            -D SDKCONFIG_DEFAULTS="${{ steps.board.outputs.sdkconfig_defaults }}" \
+            build
 
-      - name: Enforce 888 KiB binary budget
-        run: ./scripts/check-binary-size.sh --build-dir build --binary zclaw.bin --max-bytes 909312
+      - name: Enforce binary size budget (${{ matrix.label }})
+        run: |
+          ./scripts/check-binary-size.sh \
+            --build-dir "build-${{ matrix.board }}" \
+            --binary zclaw.bin \
+            --max-bytes "${{ steps.board.outputs.max_bytes }}"
